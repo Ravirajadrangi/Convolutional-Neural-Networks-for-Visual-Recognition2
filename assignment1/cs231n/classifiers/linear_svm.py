@@ -29,10 +29,13 @@ def svm_loss_naive(W, X, y, reg):
       margin = scores[j] - correct_class_score + 1 # note delta = 1
       if margin > 0:
         loss += margin
+        dW[y[i],:] -= X[:,i].T
+        dW[j,:] += X[:,i].T
 
   # Right now the loss is a sum over all training examples, but we want it
   # to be an average instead so we divide by num_train.
   loss /= num_train
+  dW /= num_train
 
   # Add regularization to the loss.
   loss += 0.5 * reg * np.sum(W * W)
@@ -64,7 +67,29 @@ def svm_loss_vectorized(W, X, y, reg):
   # Implement a vectorized version of the structured SVM loss, storing the    #
   # result in loss.                                                           #
   #############################################################################
-  pass
+
+  num_classes = W.shape[0]
+  num_train = X.shape[1]
+
+  # need to use an advanced index so we get copies of the data rather than a view (as in slicing)
+  examples_idx = np.arange(num_train)
+
+
+
+  scores = W.dot(X)
+  correct_scores = scores[y, examples_idx]
+  margin = scores - correct_scores + 1
+  margin[y, examples_idx] = 0 # set the loss for correct classes to 0
+
+  loss_matrix = np.zeros((num_classes, num_train))
+  loss_matrix = np.maximum(loss_matrix, margin) # element-wise maximum
+  loss = np.sum(loss_matrix) / num_train
+
+
+  # Add regularization to the loss.
+  loss += 0.5 * reg * np.sum(W * W)
+
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -79,7 +104,14 @@ def svm_loss_vectorized(W, X, y, reg):
   # to reuse some of the intermediate values that you used to compute the     #
   # loss.                                                                     #
   #############################################################################
-  pass
+  mask = np.zeros(margin.shape)
+  mask[margin > 0] = 1
+
+  # sum over all j != y_i
+  incorrect_classes = np.sum(mask, axis=0)
+  mask[y, examples_idx] = -1 * incorrect_classes[examples_idx]
+  dW = np.dot(mask, X.T) / num_train
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
