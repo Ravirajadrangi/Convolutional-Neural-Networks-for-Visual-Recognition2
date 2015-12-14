@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.spatial.distance
 
 class KNearestNeighbor:
   """ a kNN classifier with L2 distance """
@@ -66,7 +67,7 @@ class KNearestNeighbor:
         # Compute the l2 distance between the ith test point and the jth    #
         # training point, and store the result in dists[i, j]               #
         #####################################################################
-        pass
+        dists[i, j] = np.linalg.norm(self.X_train[j, :] - X[i, :])
         #####################################################################
         #                       END OF YOUR CODE                            #
         #####################################################################
@@ -88,7 +89,7 @@ class KNearestNeighbor:
       # Compute the l2 distance between the ith test point and all training #
       # points, and store the result in dists[i, :].                        #
       #######################################################################
-      pass
+      dists[i, :] = np.linalg.norm(X[i] - self.X_train, axis=1)
       #######################################################################
       #                         END OF YOUR CODE                            #
       #######################################################################
@@ -112,7 +113,25 @@ class KNearestNeighbor:
     # HINT: Try to formulate the l2 distance using matrix multiplication    #
     #       and two broadcast sums.                                         #
     #########################################################################
-    pass
+
+    # some helpful mathmatical intuition
+    # http://nonconditional.com/2014/04/on-the-trick-for-computing-the-squared-euclidian-distances-between-two-sets-of-vectors/
+    # the trick is to recognize the pairwise euclidian distance between two single examples pdist(X[i],X_train[j])
+    # can be written as: sqrt(X[i] * X[j] + X_train[j] * X_train[j] - 2 * X * X_train)
+
+    # square the elements, sum row-wise (across columns)
+    test_ss = np.matrix(np.square(X).sum(axis=1))
+    train_ss = np.matrix(np.square(self.X_train).sum(axis=1))
+
+    # -2 * X * X_train gives the second component of the distance calculation
+    m = -2 * np.dot(X, self.X_train.T)
+    #print m.shape
+
+    dists = np.sqrt(m + train_ss + test_ss.T)
+    #dists = scipy.spatial.distance.pdist(X, 'euclidean', self.X_train)
+    #print dists.shape
+
+    #
     #########################################################################
     #                         END OF YOUR CODE                              #
     #########################################################################
@@ -144,7 +163,14 @@ class KNearestNeighbor:
       # neighbors. Store these labels in closest_y.                           #
       # Hint: Look up the function numpy.argsort.                             #
       #########################################################################
-      pass
+
+      # sort the distances from the training examples for a single test example
+      # slice the first k of the corresponding keys to select a subset of the
+      # training labels
+
+      sorted_labels = self.y_train[np.argsort(dists[i])].flatten()
+      closest_y = sorted_labels[:k]
+
       #########################################################################
       # TODO:                                                                 #
       # Now that you have found the labels of the k nearest neighbors, you    #
@@ -152,7 +178,15 @@ class KNearestNeighbor:
       # Store this label in y_pred[i]. Break ties by choosing the smaller     #
       # label.                                                                #
       #########################################################################
-      pass
+
+      # generate a histogram over the labels
+      label_freq = np.bincount(closest_y)
+
+      # get indicies of the most frequent labels in the general case where there
+      # may be ties. Break the tie by selecting the first element of this array
+      most_frequent = np.argwhere(label_freq == label_freq.max())
+      y_pred[i] = most_frequent.min()
+
       #########################################################################
       #                           END OF YOUR CODE                            # 
       #########################################################################
